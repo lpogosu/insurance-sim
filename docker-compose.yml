@@ -1,0 +1,40 @@
+# `docker compose up` поднимает веб-клиент без единого секрета: разбор
+# собирается детерминированно, проверка подписи Telegram выключена.
+# Бот описан в профиле `bot` и требует токен — поднимается отдельно:
+#   docker compose --profile bot up
+
+services:
+  web:
+    build:
+      context: ./web
+    ports:
+      - '3000:3000'
+    environment:
+      COACH_PROVIDER: ${COACH_PROVIDER:-rules}
+      COACH_API_KEY: ${COACH_API_KEY:-}
+      COACH_BASE_URL: ${COACH_BASE_URL:-https://openrouter.ai/api/v1}
+      COACH_MODEL: ${COACH_MODEL:-qwen/qwen3-235b-a22b}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://127.0.0.1:3000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  bot:
+    profiles: ['bot']
+    build:
+      context: ./bot
+    # Без подстановки `:?`: compose раскрывает переменные всех сервисов сразу,
+    # включая выключенные профилем, и `docker compose config` падал бы даже
+    # тому, кто поднимает один веб. Обязательность проверяет сам бот
+    # (`bot/src/config.ts`) — там она и объясняется человеческим текстом.
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN:-}
+      WEB_APP_URL: ${WEB_APP_URL:-}
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
