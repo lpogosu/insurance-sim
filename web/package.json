@@ -1,0 +1,37 @@
+{
+  "name": "risklab-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build && node scripts/bundle-standalone.mjs",
+    "start": "node .next/standalone/server.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "simulate": "tsx scripts/simulate.ts"
+  },
+  "dependencies": {
+    "framer-motion": "^12.38.0",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^1.7.0",
+    "next": "16.2.2",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.19.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.2.2",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.0"
+  }
+}
