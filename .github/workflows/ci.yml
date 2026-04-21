@@ -1,0 +1,105 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      # Сборка идёт без единого секрета: значение по умолчанию для
+      # COACH_PROVIDER — rules, и внешняя модель в CI не участвует.
+      - name: Build
+        run: npm run build
+
+      - name: Balance simulation
+        run: npm run simulate -- --games 300
+
+  bot:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: bot
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: bot/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Validate compose file
+        run: docker compose config --quiet
+
+      - name: Build web image
+        uses: docker/build-push-action@v6.10.0
+        with:
+          context: ./web
+          push: false
+          load: true
+          tags: risklab-web:ci
+
+      - name: Smoke run without any secrets
+        run: |
+          docker run -d --name risklab -p 3000:3000 risklab-web:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3000/api/health > /dev/null; then break; fi
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:3000/api/health | tee /dev/stderr | grep -q '"coach":"rules"'
+          curl -sf http://127.0.0.1:3000/ > /dev/null
+          docker rm -f risklab
